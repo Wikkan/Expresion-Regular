@@ -1,4 +1,4 @@
-contadorHojas = 1
+contadorHojas = 0
 
 # Estructura de Nodo
 class Node():
@@ -9,9 +9,11 @@ class Node():
         self.hoja = True
         self.numeroHoja = None
         self.anulable = False
-        self.primeraPos = []
-        self.ultimaPos = []
+        self.primera = set()# Conjunto vacío
+        self.ultima = set()# Conjunto vacío
 
+    # Inserta un elemento a la izquierda o derecha del nodo dependiende del la posicion que se le envíe
+    # que es la profundidad del arbol
     def insertar(self, elemento, pos=0):
         if pos == 0:
             if self.izq is None:
@@ -29,6 +31,7 @@ class Node():
             else:
                 self.der.insertar(elemento, pos-1)
 
+    # Hace el recorrido izquierda-raiz-derecha
     def ird(self):
         if self.izq is None:
             tiraIzq = ""
@@ -42,6 +45,7 @@ class Node():
 
         return tiraIzq + " " + self.getElemento() + " " + tiraDer
 
+    # Numera los nodos que sean hoja
     def nodosHoja(self):
         global contadorHojas
 
@@ -55,9 +59,88 @@ class Node():
             self.numeroHoja = contadorHojas
             contadorHojas += 1
 
+    # Marca los elementos necesarios para el algoritmo
+    def marcaElementosAFD(self):
+        if self.izq is not None:
+            self.izq.marcaElementosAFD()
+
+        if self.der is not None:
+            self.der.marcaElementosAFD()
+
+        self.anulabilidad()
+        self.primeraPos()
+        self.ultimaPos()
+
+    # Calcula la anulabilidad
+    def anulabilidad(self):
+        if self.hoja:
+            self.anulable = False
+        elif self.getElemento() == "|":
+            self.anulable = self.izq.getAnulable() or self.der.getAnulable()
+        elif self.getElemento() == ".":
+            self.anulable = self.izq.getAnulable() and self.der.getAnulable()
+        elif self.getElemento() == "*":
+            self.anulable = True
+        elif self.getElemento() == "+":
+            self.anulable = self.izq.getAnulable()
+        elif self.getElemento() == "?":
+            self.anulable = True
+
+    # Calcula la primeraPos
+    def primeraPos(self):
+        if self.hoja:
+            self.primera.add(self.getNumeroHoja())
+        elif self.getElemento() == "|":
+            self.primera = self.izq.getPrimeraPos() | self.der.getPrimeraPos()
+        elif self.getElemento() == ".":
+            if self.izq.getAnulable():
+                self.primera = self.izq.getPrimeraPos() | self.der.getPrimeraPos()
+            else:
+                self.primera = self.izq.getPrimeraPos()
+        elif self.getElemento() == "*":
+            self.primera = self.izq.getPrimeraPos()
+        elif self.getElemento() == "+":
+            self.primera = self.izq.getPrimeraPos()
+        elif self.getElemento() == "?":
+            self.primera = self.izq.getPrimeraPos()
+
+    # Calcula la ultimaPos
+    def ultimaPos(self):
+        if self.hoja:
+            self.ultima.add(self.getNumeroHoja())
+        elif self.getElemento() == "|":
+            self.ultima = self.izq.getUltimaPos() | self.der.getUltimaPos()
+        elif self.getElemento() == ".":
+            if self.der.getAnulable():
+                self.ultima = self.izq.getUltimaPos() | self.der.getUltimaPos()
+            else:
+                self.ultima = self.der.getUltimaPos()
+        elif self.getElemento() == "*":
+            self.ultima = self.izq.getUltimaPos()
+        elif self.getElemento() == "+":
+            self.ultima = self.izq.getUltimaPos()
+        elif self.getElemento() == "?":
+            self.ultima = self.izq.getUltimaPos()
+
+    # Devuelve el elemento del nodo
     def getElemento(self):
         return self.elemento
 
+    # Devuleve la anulabilidad del nodo
+    def getAnulable(self):
+        return self.anulable
+
+    # Devuelve el número del nodo hoja
+    def getNumeroHoja(self):
+        return self.numeroHoja
+
+    # Devuelve la primeraPos del nodo
+    def getPrimeraPos(self):
+        return self.primera
+
+    # Devuelve la ultimaPos del nodo
+    def getUltimaPos(self):
+        return self.ultima
 
 # Estructura de Arbol
 class Arbol():
@@ -67,23 +150,33 @@ class Arbol():
         else:
             self.raiz = Node(elemento)
 
+    # Inserta un elemento en las profundidad del árbol que posee pos
     def insertar(self, elemento, pos=0):
         if self.raiz is None:
             self.raiz = Node(elemento)
         else:
             self.raiz.insertar(elemento, pos)
 
+    # Inicia el recorrido izquierda-raiz-derecha
     def recorridoIRD(self):
         if self.raiz is None:
             return ""
         else:
             return self.raiz.ird()
 
+    # Inicia el marcado de los nodos hoja
     def buscarHojas(self):
         if self.raiz is None:
             return None
         else:
             return self.raiz.nodosHoja()
+
+    # Inicia el algoritmo para marcar la anulabilidad, primeraPos, ultimaPos
+    def afd(self):
+        if self.raiz is None:
+            return None
+        else:
+            return self.raiz.marcaElementosAFD()
 
 
 # Reprecenta los espacios donde debe haber una concatenación con un "."
@@ -125,7 +218,6 @@ def depurar(cadena):
             lista.append(cadena[i])
         i += 1
     lista.append("#")
-    print(lista)
     return enlistar(concatenador(lista))
 
 
@@ -175,7 +267,7 @@ def enlistar(lista):
 
 # Ordena la lista por prioridad de símbolos
 def ordenarLista(lista):
-    listaSimbolos = [".", "|", "*", "+", "?"]
+    listaSimbolos = ["|", ".", "*", "+", "?"]
     i = len(lista)-1
 
     if len(lista) == 1:
@@ -206,12 +298,13 @@ def crearArbol(lista, arbol, pos=0):
 def er(cadena):
     arbol = Arbol()
     listaTokens = depurar(cadena)
-    print(listaTokens)
+    #print(listaTokens)
     listaPrioridad = ordenarLista(listaTokens)
-    print(listaPrioridad)
+    #print(listaPrioridad)
     crearArbol(listaPrioridad, arbol)
-    print(arbol.recorridoIRD())
+    #print(arbol.recorridoIRD())
     arbol.buscarHojas()
+    arbol.afd()
     return arbol
 
 
