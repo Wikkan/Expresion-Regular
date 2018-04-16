@@ -3,21 +3,25 @@ alfabeto = []
 hojas = []
 siguientePos = []
 
+# Estructura del archivo
 class Archivo():
     def __init__(self, direccion):
-        self.archivoLeer = self.abrirArchivo(direccion)
-        self.archivoEscribir = self.abrirArchivo()
+        self.archivoLeer = self.abrirArchivo(direccion, "r")
+        self.archivoEscribir = self.abrirArchivo(direccion, "w")
 
-    def abrirArchivo(self, direccion=None):
-        if direccion is not None:
-            return open(direccion, "r")
-        else:
-            return open("archivoAutomata.txt", "w")
+    # Abre el archivo
+    def abrirArchivo(self, direccion, accion):
+        if accion == "r":
+            return open(direccion, accion)
+        elif accion == "w":
+            return open("%sAutomata.txt" % direccion[:-4], accion)
 
+    # Cierra los archivos
     def cerrarArchivo(self):
         self.archivoLeer.close()
         self.archivoEscribir.close()
 
+    # Lee el archivo con el autómata
     def aplicarAutomata(self, automata):
         mensaje = ""
         fila = 1
@@ -41,13 +45,15 @@ class Archivo():
                 else:
                     conjunto = 0
                     mensaje = ""
-                    columna = recorrido + 1
+                    recorrido += 1
+                    columna = recorrido
             fila += 1
             recorrido = 1
             columna = 1
 
         self.cerrarArchivo()
 
+    # Escribe en el archivo de salida
     def escribirArchivo(self, mensaje):
         self.archivoEscribir.write(mensaje)
 
@@ -68,38 +74,34 @@ class Estado():
     def insertarMovimiento(self, elemento, movimiento):
         self.elementos[elemento] = movimiento
 
-    def getMovimiento(self, elemento):
-        return self.elemento[elemento]
-
-    def getEstado(self):
-        return self.estado
-
-    def getConjunto(self):
-        return self.conjunto
-
+    # Devuelve el movimiento dentro del autómata
     def getMovimiento(self, elemento):
         return self.elementos[elemento]
 
+    # Devuelve el estado
+    def getEstado(self):
+        return self.estado
+
+    # Devuelve el conjunto
+    def getConjunto(self):
+        return self.conjunto
+
+    # Devuleve si es estado aceptador o no
     def getAceptacion(self):
         return self.aceptacion
 
 # Estructura espacial de matriz
-class Matriz():
+class Automata():
     def __init__(self):
         self.matriz = []
         self.tamaño = 0
         self.aceptadores = []
 
-    def crearMatriz(self, fila, columna):
-        for x in range(fila):
-            self.matriz.append([0] * columna)
-
+    # Guarda los estados que sean aceptados dentro de una lista de estados aceptados
     def marcarAceptadores(self):
         for x in self.matriz:
             if x.getAceptacion():
                 self.aceptadores.append(x.getConjunto())
-
-        print()
 
     # Inserta un estado nuevo a la matriz del autómata
     def insertarEstado(self, estadoNuevo, estadoOrigen=None, elemento=""):
@@ -143,12 +145,14 @@ class Matriz():
 
         return mensaje
 
+    # Hace el movimiento dentro del autómata y devuelve el estado en el que se encuentra
     def lecturaAutomata(self, conjunto, caracter):
         if caracter in alfabeto:
             return self.matriz[conjunto].getMovimiento(caracter)
         else:
             return False
 
+    # Devuelve el estado aceptador
     def getEstadosAceptadores(self):
         return self.aceptadores
 
@@ -235,7 +239,7 @@ class Node():
             self.anulable = False
         elif self.getElemento() == "|":
             self.anulable = self.izq.getAnulable() or self.der.getAnulable()
-        elif self.getElemento() == ".":
+        elif self.getElemento() == "¶":
             self.anulable = self.izq.getAnulable() and self.der.getAnulable()
         elif self.getElemento() == "*":
             self.anulable = True
@@ -250,7 +254,7 @@ class Node():
             self.primera.add(self.getNumeroHoja())
         elif self.getElemento() == "|":
             self.primera = self.izq.getPrimeraPos() | self.der.getPrimeraPos()
-        elif self.getElemento() == ".":
+        elif self.getElemento() == "¶":
             if self.izq.getAnulable():
                 self.primera = self.izq.getPrimeraPos() | self.der.getPrimeraPos()
             else:
@@ -268,7 +272,7 @@ class Node():
             self.ultima.add(self.getNumeroHoja())
         elif self.getElemento() == "|":
             self.ultima = self.izq.getUltimaPos() | self.der.getUltimaPos()
-        elif self.getElemento() == ".":
+        elif self.getElemento() == "¶":
             if self.der.getAnulable():
                 self.ultima = self.izq.getUltimaPos() | self.der.getUltimaPos()
             else:
@@ -287,7 +291,7 @@ class Node():
         if self.getElemento() == "*":
             for x in self.getUltimaPos():
                 siguientePos[x] = siguientePos[x] | self.getPrimeraPos()
-        elif self.getElemento() == ".":
+        elif self.getElemento() == "¶":
             for x in self.izq.getUltimaPos():
                 siguientePos[x] = siguientePos[x] | self.der.getPrimeraPos()
 
@@ -351,7 +355,7 @@ class Arbol():
         global siguientePos
         for x in range(contadorHojas-1):
             siguientePos.append(set())
-        automata = Matriz()
+        automata = Automata()
 
         if self.raiz is None:
             return None
@@ -381,45 +385,74 @@ class Arbol():
 
         return automata
 
-# Reprecenta los espacios donde debe haber una concatenación con un "."
+# Reprecenta los espacios donde debe haber una concatenación con un "¶"
 def concatenador(lista):
     listaAux = []
     i = 0
+
     while i != len(lista):
         if lista[i] in "+*":
             if lista[i+1] not in "+*)#]":
                 listaAux.append(lista[i])
-                listaAux.append(".")
+                listaAux.append("¶")
             else:
                 listaAux.append(lista[i])
         elif lista[i] not in "+*(#|[":
             if lista[i+1] == "(" or lista[i] == "[" or lista[i+1] not in "+*)|]":
                 listaAux.append(lista[i])
-                listaAux.append(".")
+                listaAux.append("¶")
             else:
                 listaAux.append(lista[i])
         else:
             listaAux.append(lista[i])
         i += 1
+
     return listaAux
 
 # Borra los espacios en blanco y retorna una lista con los tokens
 def depurar(cadena):
     lista = []
     i = 0
+
     while i != len(cadena):
         if cadena[i] == "'":
-            lista.append('(')
-            i += 1
-            while cadena[i] != "'":
-                lista.append(cadena[i])
+            if len(cadena) > i+2 and cadena[i+2] == "-":
+                rango = armarRango(cadena[i+1], cadena[i+3])
+                if rango != "":
+                    for x in rango:
+                        lista.append(x)
+                    i += 4
+                else:
+                    lista.append('(')
+                    i += 1
+                    while cadena[i] != "'":
+                        lista.append(cadena[i])
+                        i += 1
+                    lista.append(')')
+            else:
+                lista.append('(')
                 i += 1
-            lista.append(')')
+                while cadena[i] != "'":
+                    lista.append(cadena[i])
+                    i += 1
+                lista.append(')')
         elif cadena[i] in "+*[]|()":
             lista.append(cadena[i])
         i += 1
     lista.append("#")
     return enlistar(concatenador(lista))
+
+def armarRango(inicio, final):
+    cadena = ""
+
+    if ord(final) > ord(inicio):
+        cadena += "("
+        cadena += "(%s)" % inicio
+        for x in range(ord(final) - ord(inicio)):
+            cadena += "|(%s)" % chr(ord(inicio) + x + 1)
+        cadena += ")"
+
+    return cadena
 
 # Vuelve los valores dentro de parentesis y corchetes, una lista en la lista de tokens
 def enlistar(lista):
@@ -466,7 +499,7 @@ def enlistar(lista):
 
 # Ordena la lista por prioridad de símbolos
 def ordenarLista(lista):
-    listaSimbolos = ["|", ".", "*", "+", "?"]
+    listaSimbolos = ["|", "¶", "*", "+", "?"]
     i = len(lista) - 1
 
     if len(lista) == 1:
@@ -481,7 +514,6 @@ def ordenarLista(lista):
                     return [lista[y], ordenarLista(lista[:y]), ordenarLista(lista[y+1:])]
     else:
         return [None]
-
 
 # Crea el árbol sintáctico
 def crearArbol(lista, arbol, pos=0):
@@ -507,12 +539,14 @@ def er(cadena, texto):
     #print(siguientePos)
     #print(automata.imprimirAutomata())
     archivo = Archivo(texto)
-    return archivo.aplicarAutomata(automata)
+    archivo.aplicarAutomata(automata)
 
 
 # Pruebas
 #print(er("'hola'+('2'|'a') 'a-z'"))
-print(er("('a'|'b')*'abb'", "texto.txt"))
+#er("('a'|'b')*'abb'", "texto.txt")
+#er("['+']'0'['3']('1'|'2')", "texto1.txt")
+er("'0-9'*'.'['3']('1'|'2')", "texto1.txt")
 #print(er("('a'|'b')*'hola'+('a'('a'|'b')+['a'])*"))
 #print(er("('a'|'b')('b'|'a')"))
 #print(er("'a'+('ab'|'ba')*'cvd''ascd'*('a'*('a'|('b'|'c')*)+)"))
