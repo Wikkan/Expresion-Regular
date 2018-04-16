@@ -3,6 +3,55 @@ alfabeto = []
 hojas = []
 siguientePos = []
 
+class Archivo():
+    def __init__(self, direccion):
+        self.archivoLeer = self.abrirArchivo(direccion)
+        self.archivoEscribir = self.abrirArchivo()
+
+    def abrirArchivo(self, direccion=None):
+        if direccion is not None:
+            return open(direccion, "r")
+        else:
+            return open("archivoAutomata.txt", "w")
+
+    def cerrarArchivo(self):
+        self.archivoLeer.close()
+        self.archivoEscribir.close()
+
+    def aplicarAutomata(self, automata):
+        mensaje = ""
+        fila = 1
+        columna = 1
+        recorrido = 1
+        conjunto = 0
+
+        for linea in self.archivoLeer.readlines():
+            for caracter in linea:
+                conjunto = automata.lecturaAutomata(conjunto, caracter)
+                if type(conjunto) == int:
+                    mensaje += caracter
+                    recorrido += 1
+                    if conjunto in automata.getEstadosAceptadores():
+                        mensajeNuevo = ""
+                        for x in mensaje:
+                            if x != "\n":
+                                mensajeNuevo += x
+                        lineaImprimir = "%s -> (Fila= %s , Columna= %s)\n" % (mensajeNuevo, fila, columna)
+                        self.escribirArchivo(lineaImprimir)
+                else:
+                    conjunto = 0
+                    mensaje = ""
+                    columna = recorrido + 1
+            fila += 1
+            recorrido = 1
+            columna = 1
+
+        self.cerrarArchivo()
+
+    def escribirArchivo(self, mensaje):
+        self.archivoEscribir.write(mensaje)
+
+
 # Estructura del estado del autómata
 class Estado():
     def __init__(self, conjunto, estado, inicial, aceptacion):
@@ -15,8 +64,12 @@ class Estado():
         for x in alfabeto:
             self.elementos[x] = set()
 
+    # Busca la llave en el diccionario de valores e inserta el movimiento asociado
     def insertarMovimiento(self, elemento, movimiento):
         self.elementos[elemento] = movimiento
+
+    def getMovimiento(self, elemento):
+        return self.elemento[elemento]
 
     def getEstado(self):
         return self.estado
@@ -27,17 +80,30 @@ class Estado():
     def getMovimiento(self, elemento):
         return self.elementos[elemento]
 
+    def getAceptacion(self):
+        return self.aceptacion
+
 # Estructura espacial de matriz
 class Matriz():
     def __init__(self):
         self.matriz = []
         self.tamaño = 0
+        self.aceptadores = []
 
     def crearMatriz(self, fila, columna):
         for x in range(fila):
             self.matriz.append([0] * columna)
 
+    def marcarAceptadores(self):
+        for x in self.matriz:
+            if x.getAceptacion():
+                self.aceptadores.append(x.getConjunto())
+
+        print()
+
+    # Inserta un estado nuevo a la matriz del autómata
     def insertarEstado(self, estadoNuevo, estadoOrigen=None, elemento=""):
+        # Verifica si el estado está repetido o no para ingresarlo
         if not self.verificarRepetidos(estadoNuevo):
             self.matriz.append(Estado(self.tamaño, estadoNuevo, True if self.tamaño == 0 else False, True if contadorHojas - 1 in estadoNuevo else False))
             if self.tamaño:
@@ -50,12 +116,14 @@ class Matriz():
 
         return False
 
+    # Valida que el estado esté repetido o no
     def verificarRepetidos(self, estado):
         for x in self.matriz:
             if x.getEstado() == estado:
                 return True
         return False
 
+    # Ingresa el movimieto en el estado
     def movimiento(self, estadoMovimiento, estadoOrigen, elemento):
         for x in self.matriz:
             if x.getEstado() == estadoOrigen:
@@ -63,6 +131,7 @@ class Matriz():
                     if y.getEstado() == estadoMovimiento:
                         x.insertarMovimiento(elemento, y.getConjunto())
 
+    # Imprime los autómatas
     def imprimirAutomata(self):
         mensaje = ""
 
@@ -73,6 +142,15 @@ class Matriz():
             mensaje += "\n"
 
         return mensaje
+
+    def lecturaAutomata(self, conjunto, caracter):
+        if caracter in alfabeto:
+            return self.matriz[conjunto].getMovimiento(caracter)
+        else:
+            return False
+
+    def getEstadosAceptadores(self):
+        return self.aceptadores
 
 # Estructura de Nodo
 class Node():
@@ -325,7 +403,6 @@ def concatenador(lista):
         i += 1
     return listaAux
 
-
 # Borra los espacios en blanco y retorna una lista con los tokens
 def depurar(cadena):
     lista = []
@@ -343,7 +420,6 @@ def depurar(cadena):
         i += 1
     lista.append("#")
     return enlistar(concatenador(lista))
-
 
 # Vuelve los valores dentro de parentesis y corchetes, una lista en la lista de tokens
 def enlistar(lista):
@@ -388,11 +464,10 @@ def enlistar(lista):
             i += 1
     return listaSalida
 
-
 # Ordena la lista por prioridad de símbolos
 def ordenarLista(lista):
     listaSimbolos = ["|", ".", "*", "+", "?"]
-    i = len(lista)-1
+    i = len(lista) - 1
 
     if len(lista) == 1:
         if type(lista[0]) is list:
@@ -418,7 +493,7 @@ def crearArbol(lista, arbol, pos=0):
         arbol.insertar(lista[0], pos-1)
 
 # Función inicial
-def er(cadena):
+def er(cadena, texto):
     arbol = Arbol()
     listaTokens = depurar(cadena)
     #print(listaTokens)
@@ -428,13 +503,16 @@ def er(cadena):
     #print(arbol.recorridoIRD())
     arbol.buscarHojas()
     automata = arbol.afd()
+    automata.marcarAceptadores()
     #print(siguientePos)
-    return automata.imprimirAutomata()
+    #print(automata.imprimirAutomata())
+    archivo = Archivo(texto)
+    return archivo.aplicarAutomata(automata)
 
 
 # Pruebas
 #print(er("'hola'+('2'|'a') 'a-z'"))
-#print(er("('a'|'b')*'abb'"))
+print(er("('a'|'b')*'abb'", "texto.txt"))
 #print(er("('a'|'b')*'hola'+('a'('a'|'b')+['a'])*"))
 #print(er("('a'|'b')('b'|'a')"))
 #print(er("'a'+('ab'|'ba')*'cvd''ascd'*('a'*('a'|('b'|'c')*)+)"))

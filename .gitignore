@@ -150,3 +150,6 @@ fabric.properties
 .idea/httpRequests
 *.iml
 *.xml
+
+
+*.txt
