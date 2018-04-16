@@ -1,4 +1,78 @@
 contadorHojas = 0
+alfabeto = []
+hojas = []
+siguientePos = []
+
+# Estructura del estado del autómata
+class Estado():
+    def __init__(self, conjunto, estado, inicial, aceptacion):
+        self.conjunto = conjunto
+        self.estado = estado
+        self.elementos = {}
+        self.inicial = inicial
+        self.aceptacion = aceptacion
+
+        for x in alfabeto:
+            self.elementos[x] = set()
+
+    def insertarMovimiento(self, elemento, movimiento):
+        self.elementos[elemento] = movimiento
+
+    def getEstado(self):
+        return self.estado
+
+    def getConjunto(self):
+        return self.conjunto
+
+    def getMovimiento(self, elemento):
+        return self.elementos[elemento]
+
+# Estructura espacial de matriz
+class Matriz():
+    def __init__(self):
+        self.matriz = []
+        self.tamaño = 0
+
+    def crearMatriz(self, fila, columna):
+        for x in range(fila):
+            self.matriz.append([0] * columna)
+
+    def insertarEstado(self, estadoNuevo, estadoOrigen=None, elemento=""):
+        if not self.verificarRepetidos(estadoNuevo):
+            self.matriz.append(Estado(self.tamaño, estadoNuevo, True if self.tamaño == 0 else False, True if contadorHojas - 1 in estadoNuevo else False))
+            if self.tamaño:
+                self.movimiento(estadoNuevo, estadoOrigen, elemento)
+            self.tamaño += 1
+            return True
+
+        if self.tamaño:
+            self.movimiento(estadoNuevo, estadoOrigen, elemento)
+
+        return False
+
+    def verificarRepetidos(self, estado):
+        for x in self.matriz:
+            if x.getEstado() == estado:
+                return True
+        return False
+
+    def movimiento(self, estadoMovimiento, estadoOrigen, elemento):
+        for x in self.matriz:
+            if x.getEstado() == estadoOrigen:
+                for y in self.matriz:
+                    if y.getEstado() == estadoMovimiento:
+                        x.insertarMovimiento(elemento, y.getConjunto())
+
+    def imprimirAutomata(self):
+        mensaje = ""
+
+        for x in self.matriz:
+            mensaje += "Conjunto: %s" % x.getConjunto()
+            for y in alfabeto:
+                mensaje += " %s: %s" % (y, x.getMovimiento(y))
+            mensaje += "\n"
+
+        return mensaje
 
 # Estructura de Nodo
 class Node():
@@ -48,6 +122,8 @@ class Node():
     # Numera los nodos que sean hoja
     def nodosHoja(self):
         global contadorHojas
+        global alfabeto
+        global hojas
 
         if self.izq is not None:
             self.izq.nodosHoja()
@@ -58,14 +134,18 @@ class Node():
         if self.hoja:
             self.numeroHoja = contadorHojas
             contadorHojas += 1
+            if self.getElemento() != "#":
+                if self.getElemento() not in alfabeto:
+                    alfabeto.append(self.getElemento())
+                hojas.append(self)
 
     # Marca los elementos necesarios para el algoritmo
-    def marcaElementosAFD(self):
+    def marcarElementosAFD(self):
         if self.izq is not None:
-            self.izq.marcaElementosAFD()
+            self.izq.marcarElementosAFD()
 
         if self.der is not None:
-            self.der.marcaElementosAFD()
+            self.der.marcarElementosAFD()
 
         self.anulabilidad()
         self.primeraPos()
@@ -122,6 +202,23 @@ class Node():
         elif self.getElemento() == "?":
             self.ultima = self.izq.getUltimaPos()
 
+    # Recorre el árbol e ingresa los conjuntos para siguientePos
+    def marcarSiguientePos(self):
+        global siguientePos
+
+        if self.getElemento() == "*":
+            for x in self.getUltimaPos():
+                siguientePos[x] = siguientePos[x] | self.getPrimeraPos()
+        elif self.getElemento() == ".":
+            for x in self.izq.getUltimaPos():
+                siguientePos[x] = siguientePos[x] | self.der.getPrimeraPos()
+
+        if self.izq is not None:
+            self.izq.marcarSiguientePos()
+
+        if self.der is not None:
+            self.der.marcarSiguientePos()
+
     # Devuelve el elemento del nodo
     def getElemento(self):
         return self.elemento
@@ -169,15 +266,42 @@ class Arbol():
         if self.raiz is None:
             return None
         else:
-            return self.raiz.nodosHoja()
+            self.raiz.nodosHoja()
 
     # Inicia el algoritmo para marcar la anulabilidad, primeraPos, ultimaPos
     def afd(self):
+        global siguientePos
+        for x in range(contadorHojas-1):
+            siguientePos.append(set())
+        automata = Matriz()
+
         if self.raiz is None:
             return None
         else:
-            return self.raiz.marcaElementosAFD()
+            self.raiz.marcarElementosAFD()
+            self.raiz.marcarSiguientePos()
 
+            # Ingresa el valor de la raiz
+            automata.insertarEstado(self.raiz.getPrimeraPos())
+            return self.afdAux(self.raiz.getPrimeraPos(), automata)
+
+    def afdAux(self, estado, automata):
+        estadoNuevo = set()
+
+        for x in alfabeto:
+            for y in estado:
+                for z in hojas:
+                    if z.getNumeroHoja() == y and z.getElemento() == x:
+                        estadoNuevo = estadoNuevo | siguientePos[y]
+                        break
+            copiaEstado = estadoNuevo.copy() # Se hace una copia ya que los conjuntos trabajan con direcciones de
+                                             # memoria, y si se limpia el origina, se borran en todos los lugaren en
+                                             # donde se haciera una referencia de él
+            if automata.insertarEstado(copiaEstado, estado, x):
+                self.afdAux(copiaEstado, automata)
+            estadoNuevo.clear()
+
+        return automata
 
 # Reprecenta los espacios donde debe haber una concatenación con un "."
 def concatenador(lista):
@@ -293,7 +417,6 @@ def crearArbol(lista, arbol, pos=0):
     elif len(lista) == 1:
         arbol.insertar(lista[0], pos-1)
 
-
 # Función inicial
 def er(cadena):
     arbol = Arbol()
@@ -304,13 +427,14 @@ def er(cadena):
     crearArbol(listaPrioridad, arbol)
     #print(arbol.recorridoIRD())
     arbol.buscarHojas()
-    arbol.afd()
-    return arbol
+    automata = arbol.afd()
+    #print(siguientePos)
+    return automata.imprimirAutomata()
 
 
 # Pruebas
 #print(er("'hola'+('2'|'a') 'a-z'"))
-print(er("('a'|'b')*'abb'"))
+#print(er("('a'|'b')*'abb'"))
 #print(er("('a'|'b')*'hola'+('a'('a'|'b')+['a'])*"))
 #print(er("('a'|'b')('b'|'a')"))
 #print(er("'a'+('ab'|'ba')*'cvd''ascd'*('a'*('a'|('b'|'c')*)+)"))
