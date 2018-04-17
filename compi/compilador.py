@@ -353,8 +353,10 @@ class Arbol():
     # Inicia el algoritmo para marcar la anulabilidad, primeraPos, ultimaPos
     def afd(self):
         global siguientePos
+
         for x in range(contadorHojas-1):
             siguientePos.append(set())
+
         automata = Automata()
 
         if self.raiz is None:
@@ -367,12 +369,13 @@ class Arbol():
             automata.insertarEstado(self.raiz.getPrimeraPos())
             return self.afdAux(self.raiz.getPrimeraPos(), automata)
 
+    # Valora las hojas del arbol sintactico y si encuentra un estado nuevo lo ingresa dentro del autómata
     def afdAux(self, estado, automata):
         estadoNuevo = set()
 
-        for x in alfabeto:
-            for y in estado:
-                for z in hojas:
+        for x in alfabeto: # Elementos del alfabeto
+            for y in estado: # Estado a recorrer
+                for z in hojas: # Hojas del árbol
                     if z.getNumeroHoja() == y and z.getElemento() == x:
                         estadoNuevo = estadoNuevo | siguientePos[y]
                         break
@@ -384,30 +387,6 @@ class Arbol():
             estadoNuevo.clear()
 
         return automata
-
-# Reprecenta los espacios donde debe haber una concatenación con un "¶"
-def concatenador(lista):
-    listaAux = []
-    i = 0
-
-    while i != len(lista):
-        if lista[i] in "+*":
-            if lista[i+1] not in "+*)#]":
-                listaAux.append(lista[i])
-                listaAux.append("¶")
-            else:
-                listaAux.append(lista[i])
-        elif lista[i] not in "+*(#|[":
-            if lista[i+1] == "(" or lista[i] == "[" or lista[i+1] not in "+*)|]":
-                listaAux.append(lista[i])
-                listaAux.append("¶")
-            else:
-                listaAux.append(lista[i])
-        else:
-            listaAux.append(lista[i])
-        i += 1
-
-    return listaAux
 
 # Borra los espacios en blanco y retorna una lista con los tokens
 def depurar(cadena):
@@ -442,6 +421,31 @@ def depurar(cadena):
     lista.append("#")
     return enlistar(concatenador(lista))
 
+# Reprecenta los espacios donde debe haber una concatenación con un "¶"
+def concatenador(lista):
+    listaAux = []
+    i = 0
+
+    while i != len(lista):
+        if lista[i] in "+*":
+            if lista[i+1] not in "+*)#]":
+                listaAux.append(lista[i])
+                listaAux.append("¶")
+            else:
+                listaAux.append(lista[i])
+        elif lista[i] not in "+*(#|[":
+            if lista[i+1] == "(" or lista[i] == "[" or lista[i+1] not in "+*)|]":
+                listaAux.append(lista[i])
+                listaAux.append("¶")
+            else:
+                listaAux.append(lista[i])
+        else:
+            listaAux.append(lista[i])
+        i += 1
+
+    return listaAux
+
+# Vuelve la cadena "n-m" como un rango de valores de 'n' a 'm'
 def armarRango(inicio, final):
     cadena = ""
 
@@ -515,7 +519,7 @@ def ordenarLista(lista):
     else:
         return [None]
 
-# Crea el árbol sintáctico
+# Crea el árbol sintáctico recursivamente
 def crearArbol(lista, arbol, pos=0):
     if len(lista) == 3:
         arbol.insertar(lista[0], pos-1)
@@ -526,27 +530,23 @@ def crearArbol(lista, arbol, pos=0):
 
 # Función inicial
 def er(cadena, texto):
-    arbol = Arbol()
     listaTokens = depurar(cadena)
-    #print(listaTokens)
     listaPrioridad = ordenarLista(listaTokens)
-    #print(listaPrioridad)
-    crearArbol(listaPrioridad, arbol)
-    #print(arbol.recorridoIRD())
-    arbol.buscarHojas()
-    automata = arbol.afd()
+    arbolSintactico = Arbol()
+    crearArbol(listaPrioridad, arbolSintactico)
+    arbolSintactico.buscarHojas()
+    automata = arbolSintactico.afd()
     automata.marcarAceptadores()
-    #print(siguientePos)
-    #print(automata.imprimirAutomata())
     archivo = Archivo(texto)
     archivo.aplicarAutomata(automata)
 
 
 # Pruebas
 #print(er("'hola'+('2'|'a') 'a-z'"))
-#er("('a'|'b')*'abb'", "texto.txt")
+er("('a'|'b')*'abb'", "texto.txt")
 #er("['+']'0'['3']('1'|'2')", "texto1.txt")
-er("'0-9'*'.'['3']('1'|'2')", "texto1.txt")
+#er("'0-9'*'.'['3']('1'|'2')", "texto1.txt")
 #print(er("('a'|'b')*'hola'+('a'('a'|'b')+['a'])*"))
 #print(er("('a'|'b')('b'|'a')"))
-#print(er("'a'+('ab'|'ba')*'cvd''ascd'*('a'*('a'|('b'|'c')*)+)"))
+#print(ir("'a'+('ab'|'ba')*'cvd''ascd'*('a'*('a'|('b'|'c')*)+)"))
+#er("['-']((('0'|'1')*'.'('0'|'1')+)|(('0'|'1')+'.'('0'|'1')*))['e'('+'|'-')('0'|'1')+]", "texto2.txt")
