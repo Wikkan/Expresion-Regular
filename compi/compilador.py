@@ -107,7 +107,7 @@ class Automata():
     def insertarEstado(self, estadoNuevo, estadoOrigen=None, elemento=""):
         # Verifica si el estado está repetido o no para ingresarlo
         if not self.verificarRepetidos(estadoNuevo):
-            self.matriz.append(Estado(self.tamaño, estadoNuevo, True if self.tamaño == 0 else False, True if contadorHojas - 1 in estadoNuevo else False))
+            self.matriz.append(Estado(self.tamaño, estadoNuevo, True if self.tamaño == 0 else False, True if contadorHojas in estadoNuevo else False))
             if self.tamaño:
                 self.movimiento(estadoNuevo, estadoOrigen, elemento)
             self.tamaño += 1
@@ -127,23 +127,25 @@ class Automata():
 
     # Ingresa el movimieto en el estado
     def movimiento(self, estadoMovimiento, estadoOrigen, elemento):
-        for x in self.matriz:
-            if x.getEstado() == estadoOrigen:
-                for y in self.matriz:
-                    if y.getEstado() == estadoMovimiento:
-                        x.insertarMovimiento(elemento, y.getConjunto())
+        if estadoMovimiento != set():
+            for x in self.matriz:
+                if x.getEstado() == estadoOrigen:
+                    for y in self.matriz:
+                        if y.getEstado() == estadoMovimiento:
+                            x.insertarMovimiento(elemento, y.getConjunto())
 
     # Imprime los autómatas
     def imprimirAutomata(self):
-        mensaje = ""
+        mensaje = "Estado inicial: 0\n"
+        mensaje += "Estados de aceptación: %s\n" % self.aceptadores
 
         for x in self.matriz:
-            mensaje += "Conjunto: %s" % x.getConjunto()
+            mensaje += "Conjunto: %s Estado: %s" % (x.getConjunto(), x.getEstado())
             for y in alfabeto:
                 mensaje += " %s: %s" % (y, x.getMovimiento(y))
             mensaje += "\n"
 
-        return mensaje
+        print(mensaje)
 
     # Hace el movimiento dentro del autómata y devuelve el estado en el que se encuentra
     def lecturaAutomata(self, conjunto, caracter):
@@ -215,11 +217,12 @@ class Node():
 
         if self.hoja:
             self.numeroHoja = contadorHojas
-            contadorHojas += 1
             if self.getElemento() != "#":
-                if self.getElemento() not in alfabeto:
-                    alfabeto.append(self.getElemento())
+                contadorHojas += 1
                 hojas.append(self)
+                if self.getElemento() not in alfabeto:
+                    #if self.getElemento() not in alfabeto:
+                    alfabeto.append(self.getElemento())
 
     # Marca los elementos necesarios para el algoritmo
     def marcarElementosAFD(self):
@@ -354,7 +357,7 @@ class Arbol():
     def afd(self):
         global siguientePos
 
-        for x in range(contadorHojas-1):
+        for x in range(contadorHojas):
             siguientePos.append(set())
 
         automata = Automata()
@@ -375,15 +378,15 @@ class Arbol():
 
         for x in alfabeto: # Elementos del alfabeto
             for y in estado: # Estado a recorrer
-                for z in hojas: # Hojas del árbol
-                    if z.getNumeroHoja() == y and z.getElemento() == x:
-                        estadoNuevo = estadoNuevo | siguientePos[y]
-                        break
-            copiaEstado = estadoNuevo.copy() # Se hace una copia ya que los conjuntos trabajan con direcciones de
-                                             # memoria, y si se limpia el origina, se borran en todos los lugaren en
-                                             # donde se haciera una referencia de él
-            if automata.insertarEstado(copiaEstado, estado, x):
-                self.afdAux(copiaEstado, automata)
+                if (y < len(hojas)) and hojas[y].getNumeroHoja() == y and hojas[y].getElemento() == x:
+                    estadoNuevo = estadoNuevo | siguientePos[y]
+
+            if estadoNuevo != set():
+                copiaEstado = estadoNuevo.copy() # Se hace una copia ya que los conjuntos trabajan con direcciones de
+                                                 # memoria, y si se limpia el origina, se borran en todos los lugaren en
+                                                 # donde se haciera una referencia de él
+                if automata.insertarEstado(copiaEstado, estado, x):
+                    self.afdAux(copiaEstado, automata)
             estadoNuevo.clear()
 
         return automata
@@ -428,7 +431,7 @@ def concatenador(lista):
 
     while i != len(lista):
         if lista[i] in "+*":
-            if lista[i+1] not in "+*)#]":
+            if lista[i+1] not in "+*)]":
                 listaAux.append(lista[i])
                 listaAux.append("¶")
             else:
@@ -537,16 +540,18 @@ def er(cadena, texto):
     arbolSintactico.buscarHojas()
     automata = arbolSintactico.afd()
     automata.marcarAceptadores()
+    automata.imprimirAutomata()
     archivo = Archivo(texto)
     archivo.aplicarAutomata(automata)
 
-
 # Pruebas
 #print(er("'hola'+('2'|'a') 'a-z'"))
-er("('a'|'b')*'abb'", "texto.txt")
+#er("' hola '", "texto3.txt")
+#er("('a'|'b')*'abb'", "texto.txt")
 #er("['+']'0'['3']('1'|'2')", "texto1.txt")
 #er("'0-9'*'.'['3']('1'|'2')", "texto1.txt")
 #print(er("('a'|'b')*'hola'+('a'('a'|'b')+['a'])*"))
 #print(er("('a'|'b')('b'|'a')"))
 #print(ir("'a'+('ab'|'ba')*'cvd''ascd'*('a'*('a'|('b'|'c')*)+)"))
 #er("['-']((('0'|'1')*'.'('0'|'1')+)|(('0'|'1')+'.'('0'|'1')*))['e'('+'|'-')('0'|'1')+]", "texto2.txt")
+#er("'2'+", "texto4.txt")
