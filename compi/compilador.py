@@ -5,21 +5,28 @@ siguientePos = []
 
 # Estructura del archivo
 class Archivo():
-    def __init__(self, direccion):
+    def __init__(self, direccion, imprimir, rutaImprimir):
+        self.imprimir = imprimir
+        self.rutaImprimir = rutaImprimir
+
         self.archivoLeer = self.abrirArchivo(direccion, "r")
-        self.archivoEscribir = self.abrirArchivo(direccion, "w")
+
+        if self.imprimir:
+            self.archivoEscribir = self.abrirArchivo(rutaImprimir, "w")
 
     # Abre el archivo
     def abrirArchivo(self, direccion, accion):
         if accion == "r":
             return open(direccion, accion)
         elif accion == "w":
-            return open("%sAutomata.txt" % direccion[:-4], accion)
+            return open(direccion, accion)
 
     # Cierra los archivos
     def cerrarArchivo(self):
         self.archivoLeer.close()
-        self.archivoEscribir.close()
+
+        if self.imprimir:
+            self.archivoEscribir.close()
 
     # Lee el archivo con el autómata
     def aplicarAutomata(self, automata):
@@ -28,6 +35,7 @@ class Archivo():
         columna = 1
         recorrido = 1
         conjunto = 0
+        contador = 0
 
         for linea in self.archivoLeer.readlines():
             for caracter in linea:
@@ -40,8 +48,11 @@ class Archivo():
                         for x in mensaje:
                             if x != "\n":
                                 mensajeNuevo += x
-                        lineaImprimir = "%s -> (Fila= %s , Columna= %s)\n" % (mensajeNuevo, fila, columna)
-                        self.escribirArchivo(lineaImprimir)
+                        lineaImprimir = "%s -> (Fila= %s , Columna Inicial= %s, Columna Final= %s)\n" % (mensajeNuevo, fila, columna, recorrido - 1)
+                        if self.imprimir:
+                            self.escribirArchivo(lineaImprimir)
+                        print(lineaImprimir)
+                        contador += 1
                 else:
                     conjunto = 0
                     mensaje = ""
@@ -50,6 +61,10 @@ class Archivo():
             fila += 1
             recorrido = 1
             columna = 1
+
+        mensajeFinal = "Se encontr" + ("ó " if contador == 1 else "aron ") + str(contador) + "  " + "coincidencia" + \
+                       (" " if contador == 1 else "s ") + "en el archivo " + self.archivoLeer.name
+        print(mensajeFinal)
 
         self.cerrarArchivo()
 
@@ -140,9 +155,9 @@ class Automata():
         mensaje += "Estados de aceptación: %s\n" % self.aceptadores
 
         for x in self.matriz:
-            mensaje += "Conjunto: %s Estado: %s" % (x.getConjunto(), x.getEstado())
+            mensaje += "Estado: %s " % x.getConjunto()
             for y in alfabeto:
-                mensaje += " %s: %s" % (y, x.getMovimiento(y))
+                mensaje += "%s->%s " % (y, x.getMovimiento(y))
             mensaje += "\n"
 
         print(mensaje)
@@ -532,17 +547,51 @@ def crearArbol(lista, arbol, pos=0):
         arbol.insertar(lista[0], pos-1)
 
 # Función inicial
-def er(cadena, texto):
+def er(cadena, texto, imprimir, archivoEscribir):
     listaTokens = depurar(cadena)
+    print(listaTokens)
     listaPrioridad = ordenarLista(listaTokens)
+    print(listaPrioridad)
     arbolSintactico = Arbol()
     crearArbol(listaPrioridad, arbolSintactico)
     arbolSintactico.buscarHojas()
     automata = arbolSintactico.afd()
     automata.marcarAceptadores()
     automata.imprimirAutomata()
-    archivo = Archivo(texto)
+    archivo = Archivo(texto, imprimir, archivoEscribir)
     archivo.aplicarAutomata(automata)
+
+def menu():
+    mensaje = """
+    Reconocedor de expresiones regulares
+
+    Este reconocedor permite leer una expresion regular dada, combertirlo en un AFD
+    e imprimir las líneas que sean aceptadas por el autómata desde un archivo.
+                 
+    La expresión regular aceptada:
+    1. Valores constantes 'a', 'b', 'hola' (Deben ir dentro de comillas simples ('')).
+    2. Rangos 'a-z', '0-9' (Deben ir dentro de comillas simples ('')).
+    3. Segmentos opcionales mediante corchetes [a].
+    4. 0 o más repeticiones mediante *, 'hola'*.
+    5. 1 o más repeticiones mediante +, 'hola'+.
+    6. Opciones disjuntas (uno u el otro) mediante |.
+    """
+    print(mensaje)
+
+    expresionRegular = input("Expresion regular a evaluar: ")
+    archivo = input("Archivo de lectura: ")
+    imprimir = input("Desea imprimir las lineas en un archivo S/N: ")
+    archivoEscribir = ""
+
+    if imprimir.lower() == "s":
+        imprimir = True
+        archivoEscribir = input("Nombre del archivo a imprimir: ")
+    elif imprimir.lower() == "n":
+        imprimir = False
+
+    er(expresionRegular, archivo, imprimir, archivoEscribir)
+
+menu()
 
 # Pruebas
 #print(er("'hola'+('2'|'a') 'a-z'"))
@@ -554,4 +603,4 @@ def er(cadena, texto):
 #print(er("('a'|'b')('b'|'a')"))
 #print(ir("'a'+('ab'|'ba')*'cvd''ascd'*('a'*('a'|('b'|'c')*)+)"))
 #er("['-']((('0'|'1')*'.'('0'|'1')+)|(('0'|'1')+'.'('0'|'1')*))['e'('+'|'-')('0'|'1')+]", "texto2.txt")
-#er("'2'+", "texto4.txt")
+#er("'2'+", "texto4.txt)
